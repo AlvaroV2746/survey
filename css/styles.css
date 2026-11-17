@@ -121,6 +121,15 @@ h1 {
   background: #f1faf4;
 }
 
+.step.is-waiting {
+  border-color: #fb8c00;
+  background: #fff4e5;
+}
+
+.step.is-waiting .badge {
+  background: #fb8c00;
+}
+
 .step.is-locked {
   background: #eceff1;
   border-color: #eceff1;
@@ -175,8 +184,50 @@ h1 {
 }
 
 .status {
-  color: #1f7ae0;
+  color: #b45309;
   font-weight: 600;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 2px;
+}
+
+.dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.25;
+  animation: punto 3s infinite;
+}
+
+.dots i:nth-child(2) {
+  animation-delay: 1s;
+}
+
+.dots i:nth-child(3) {
+  animation-delay: 2s;
+}
+
+@keyframes punto {
+  0%, 33% {
+    opacity: 1;
+  }
+  34%, 100% {
+    opacity: 0.25;
+  }
+}
+
+.retry {
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: #b45309;
+  font-size: 0.875rem;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .arrow {

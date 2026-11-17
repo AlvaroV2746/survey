@@ -6,7 +6,7 @@ const PASOS = [
   { id: "premio", titleKey: "step_premio" }
 ];
 
-const TIEMPO_ESPERA = 5000;
+const TIEMPO_ESPERA = 20000;
 const STORAGE_KEY = "blucoEncuesta";
 const PREMIO_ID = "premio";
 
@@ -49,7 +49,8 @@ function render() {
     if (activo) pasoActivoEncontrado = true;
 
     const el = document.createElement("div");
-    el.className = "step " + (completado ? "is-done" : activo ? "is-active" : "is-locked");
+    const esperando = activo && !!estado.started[paso.id];
+    el.className = "step " + (completado ? "is-done" : activo ? "is-active" : "is-locked") + (esperando ? " is-waiting" : "");
 
     const badge = document.createElement("span");
     badge.className = "badge";
@@ -76,15 +77,25 @@ function render() {
       }
       el.appendChild(btn);
 
-      const ayuda = document.createElement("p");
-      ayuda.className = "hint";
-      if (estado.started[paso.id]) {
-        ayuda.className = "status";
-        ayuda.textContent = t("status_waiting");
+      if (esperando) {
+        const estadoEspera = document.createElement("p");
+        estadoEspera.className = "status";
+        estadoEspera.innerHTML = `<span></span><span class="dots"><i></i><i></i><i></i></span>`;
+        estadoEspera.firstChild.textContent = t("status_waiting");
+        el.appendChild(estadoEspera);
+
+        const reintentar = document.createElement("button");
+        reintentar.type = "button";
+        reintentar.className = "retry";
+        reintentar.textContent = t("retry");
+        reintentar.addEventListener("click", () => window.open(paso.url, "_blank", "noopener,noreferrer"));
+        el.appendChild(reintentar);
       } else {
+        const ayuda = document.createElement("p");
+        ayuda.className = "hint";
         ayuda.textContent = t(paso.url ? "hint_link" : "hint_premio");
+        el.appendChild(ayuda);
       }
-      el.appendChild(ayuda);
     } else if (!completado) {
       el.setAttribute("aria-disabled", "true");
     }
