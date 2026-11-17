@@ -11,6 +11,7 @@ const STORAGE_KEY = "blucoEncuesta";
 const PREMIO_ID = "premio";
 
 const estado = cargarEstado();
+let ultimoCompletado = null;
 let lang = estado.lang || ((navigator.language || "").toLowerCase().startsWith("es") ? "es" : "en");
 let vigilancia = null;
 
@@ -50,7 +51,7 @@ function render() {
 
     const el = document.createElement("div");
     const esperando = activo && !!estado.started[paso.id];
-    el.className = "step " + (completado ? "is-done" : activo ? "is-active" : "is-locked") + (esperando ? " is-waiting" : "");
+    el.className = "step " + (completado ? "is-done" : activo ? "is-active" : "is-locked") + (esperando ? " is-waiting" : "") + (paso.id === ultimoCompletado ? " is-just-done" : "");
 
     const badge = document.createElement("span");
     badge.className = "badge";
@@ -130,6 +131,7 @@ function revisarEsperas() {
     if (ahora - estado.started[id] >= TIEMPO_ESPERA) {
       if (!estado.completed.includes(id)) estado.completed.push(id);
       delete estado.started[id];
+      ultimoCompletado = id;
       cambio = true;
     }
   }
@@ -137,6 +139,7 @@ function revisarEsperas() {
   if (cambio) {
     guardar();
     render();
+    ultimoCompletado = null;
   }
 
   if (Object.keys(estado.started).length === 0 && vigilancia) {
