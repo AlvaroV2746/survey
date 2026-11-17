@@ -1,0 +1,200 @@
+import { TEXTOS } from "./i18n.js";
+
+const PASOS = [
+  { id: "google", titleKey: "step_google", url: "https://g.page/r/CSnP1zKUJTQ3EBM/review" },
+  { id: "tripadvisor", titleKey: "step_tripadvisor", url: "https://www.tripadvisor.com/UserReviewEdit-g297478-d34823213-Bluco_Travel-Medellin_Antioquia_Department.html" },
+  { id: "premio", titleKey: "step_premio" }
+];
+
+const TIEMPO_ESPERA = 5000;
+const STORAGE_KEY = "blucoEncuesta";
+const PREMIO_ID = "premio";
+
+const estado = cargarEstado();
+let lang = estado.lang || ((navigator.language || "").toLowerCase().startsWith("es") ? "es" : "en");
+let vigilancia = null;
+
+function cargarEstado() {
+  try {
+    const guardado = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (guardado) return { lang: null, completed: [], started: {}, ...guardado };
+  } catch (e) {}
+  return { lang: null, completed: [], started: {} };
+}
+
+function guardar() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
+}
+
+function t(key) {
+  return TEXTOS[lang][key];
+}
+
+function render() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll("[data-lang]").forEach(btn => {
+    btn.setAttribute("aria-pressed", String(btn.dataset.lang === lang));
+  });
+
+  const contenedor = document.getElementById("steps");
+  contenedor.innerHTML = "";
+  let pasoActivoEncontrado = false;
+
+  PASOS.forEach((paso, i) => {
+    const completado = estado.completed.includes(paso.id);
+    const activo = !completado && !pasoActivoEncontrado;
+    if (activo) pasoActivoEncontrado = true;
+
+    const el = document.createElement("div");
+    el.className = "step " + (completado ? "is-done" : activo ? "is-active" : "is-locked");
+
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = completado ? "✓" : String(i + 1);
+    el.appendChild(badge);
+
+    if (completado || activo) {
+      const titulo = document.createElement("p");
+      titulo.className = "step-title";
+      titulo.textContent = t(paso.titleKey);
+      el.appendChild(titulo);
+    }
+
+    if (activo) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn";
+      if (paso.url) {
+        btn.textContent = t(paso.titleKey);
+        btn.addEventListener("click", () => abrirPaso(paso));
+      } else {
+        btn.textContent = t("btn_premio");
+        btn.addEventListener("click", reclamar);
+      }
+      el.appendChild(btn);
+
+      const ayuda = document.createElement("p");
+      ayuda.className = "hint";
+      if (estado.started[paso.id]) {
+        ayuda.className = "status";
+        ayuda.textContent = t("status_waiting");
+      } else {
+        ayuda.textContent = t(paso.url ? "hint_link" : "hint_premio");
+      }
+      el.appendChild(ayuda);
+    } else if (!completado) {
+      el.setAttribute("aria-disabled", "true");
+    }
+
+    contenedor.appendChild(el);
+
+    if (i < PASOS.length - 1) {
+      const flecha = document.createElement("div");
+      flecha.className = "arrow";
+      flecha.setAttribute("aria-hidden", "true");
+      flecha.textContent = "↓";
+      contenedor.appendChild(flecha);
+    }
+  });
+}
+
+function abrirPaso(paso) {
+  window.open(paso.url, "_blank", "noopener,noreferrer");
+  if (!estado.started[paso.id]) {
+    estado.started[paso.id] = Date.now();
+    guardar();
+    iniciarVigilancia();
+    render();
+  }
+}
+
+function revisarEsperas() {
+  const ahora = Date.now();
+  let cambio = false;
+
+  for (const id of Object.keys(estado.started)) {
+    if (ahora - estado.started[id] >= TIEMPO_ESPERA) {
+      if (!estado.completed.includes(id)) estado.completed.push(id);
+      delete estado.started[id];
+      cambio = true;
+    }
+  }
+
+  if (cambio) {
+    guardar();
+    render();
+  }
+
+  if (Object.keys(estado.started).length === 0 && vigilancia) {
+    clearInterval(vigilancia);
+    vigilancia = null;
+  }
+}
+
+function iniciarVigilancia() {
+  if (!vigilancia) vigilancia = setInterval(revisarEsperas, 250);
+}
+
+function reclamar() {
+  if (!estado.completed.includes(PREMIO_ID)) {
+    estado.completed.push(PREMIO_ID);
+    guardar();
+  }
+  mostrarFinal(true);
+}
+
+function mostrarFinal(animar) {
+  const card = document.getElementById("card");
+  const thanks = document.getElementById("thanks");
+  document.body.classList.add("is-done");
+
+  const mostrarGracias = () => {
+    card.hidden = true;
+    thanks.hidden = false;
+    requestAnimationFrame(() => thanks.classList.add("is-visible"));
+  };
+
+  if (animar) {
+    card.classList.add("is-fading");
+    setTimeout(mostrarGracias, 800);
+  } else {
+    mostrarGracias();
+  }
+}
+
+document.querySelectorAll("[data-lang]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    lang = btn.dataset.lang;
+    estado.lang = lang;
+    guardar();
+    render();
+  });
+});
+
+function volverAEmpezar() {
+  estado.completed = [];
+  estado.started = {};
+  guardar();
+
+  const card = document.getElementById("card");
+  const thanks = document.getElementById("thanks");
+  document.body.classList.remove("is-done");
+  thanks.classList.remove("is-visible");
+  thanks.hidden = true;
+  card.classList.remove("is-fading");
+  card.hidden = false;
+  render();
+}
+
+document.getElementById("reiniciar").addEventListener("click", volverAEmpezar);
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) revisarEsperas();
+});
+
+render();
+if (estado.completed.includes(PREMIO_ID)) mostrarFinal(false);
+if (Object.keys(estado.started).length > 0) iniciarVigilancia();
