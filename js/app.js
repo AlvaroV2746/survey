@@ -1,12 +1,28 @@
 import { TEXTOS } from "./i18n.js";
 
 const PASOS = [
-  { id: "google", titleKey: "step_google", url: "https://g.page/r/CSnP1zKUJTQ3EBM/review" },
-  { id: "tripadvisor", titleKey: "step_tripadvisor", url: "https://www.tripadvisor.com/UserReviewEdit-g297478-d34823213-Bluco_Travel-Medellin_Antioquia_Department.html" },
+  {
+    id: "google",
+    titleKey: "step_google",
+    links: [{ url: "https://g.page/r/CSnP1zKUJTQ3EBM/review" }]
+  },
+  {
+    id: "tripadvisor",
+    titleKey: "step_tripadvisor",
+    links: [{ url: "https://www.tripadvisor.com/UserReviewEdit-g297478-d34823213-Bluco_Travel-Medellin_Antioquia_Department.html" }]
+  },
+  {
+    id: "social",
+    titleKey: "step_social",
+    links: [
+      { label: "Instagram", url: "https://www.instagram.com/blucotravelco/" },
+      { label: "TikTok", url: "https://www.tiktok.com/@blucotravelco" }
+    ]
+  },
   { id: "premio", titleKey: "step_premio" }
 ];
 
-const TIEMPO_ESPERA = 20000;
+const TIEMPO_ESPERA = 13000;
 const STORAGE_KEY = "blucoEncuesta";
 const PREMIO_ID = "premio";
 
@@ -18,9 +34,9 @@ let vigilancia = null;
 function cargarEstado() {
   try {
     const guardado = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (guardado) return { lang: null, completed: [], started: {}, ...guardado };
+    if (guardado) return { lang: null, completed: [], started: {}, primerLink: {}, ...guardado };
   } catch (e) {}
-  return { lang: null, completed: [], started: {} };
+  return { lang: null, completed: [], started: {}, primerLink: {} };
 }
 
 function guardar() {
@@ -29,6 +45,14 @@ function guardar() {
 
 function t(key) {
   return TEXTOS[lang][key];
+}
+
+function textoLink(paso, link) {
+  return link.label || t(paso.titleKey);
+}
+
+function urlInicial(paso) {
+  return estado.primerLink[paso.id] || paso.links[0].url;
 }
 
 function render() {
@@ -49,8 +73,8 @@ function render() {
     const activo = !completado && !pasoActivoEncontrado;
     if (activo) pasoActivoEncontrado = true;
 
-    const el = document.createElement("div");
     const esperando = activo && !!estado.started[paso.id];
+    const el = document.createElement("div");
     el.className = "step " + (completado ? "is-done" : activo ? "is-active" : "is-locked") + (esperando ? " is-waiting" : "") + (paso.id === ultimoCompletado ? " is-just-done" : "");
 
     const badge = document.createElement("span");
@@ -66,17 +90,26 @@ function render() {
     }
 
     if (activo) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn";
-      if (paso.url) {
-        btn.textContent = t(paso.titleKey);
-        btn.addEventListener("click", () => abrirPaso(paso));
+      if (paso.links) {
+        const grupo = document.createElement("div");
+        grupo.className = "btn-group";
+        paso.links.forEach(link => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn";
+          btn.textContent = textoLink(paso, link);
+          btn.addEventListener("click", () => abrirPaso(paso, link.url));
+          grupo.appendChild(btn);
+        });
+        el.appendChild(grupo);
       } else {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn";
         btn.textContent = t("btn_premio");
         btn.addEventListener("click", reclamar);
+        el.appendChild(btn);
       }
-      el.appendChild(btn);
 
       if (esperando) {
         const estadoEspera = document.createElement("p");
@@ -89,12 +122,12 @@ function render() {
         reintentar.type = "button";
         reintentar.className = "retry";
         reintentar.textContent = t("retry");
-        reintentar.addEventListener("click", () => window.open(paso.url, "_blank", "noopener,noreferrer"));
+        reintentar.addEventListener("click", () => window.open(urlInicial(paso), "_blank", "noopener,noreferrer"));
         el.appendChild(reintentar);
       } else {
         const ayuda = document.createElement("p");
         ayuda.className = "hint";
-        ayuda.textContent = t(paso.url ? "hint_link" : "hint_premio");
+        ayuda.textContent = t(paso.links ? "hint_link" : "hint_premio");
         el.appendChild(ayuda);
       }
     } else if (!completado) {
@@ -113,10 +146,11 @@ function render() {
   });
 }
 
-function abrirPaso(paso) {
-  window.open(paso.url, "_blank", "noopener,noreferrer");
+function abrirPaso(paso, url) {
+  window.open(url, "_blank", "noopener,noreferrer");
   if (!estado.started[paso.id]) {
     estado.started[paso.id] = Date.now();
+    estado.primerLink[paso.id] = url;
     guardar();
     iniciarVigilancia();
     render();
@@ -191,6 +225,7 @@ document.querySelectorAll("[data-lang]").forEach(btn => {
 function volverAEmpezar() {
   estado.completed = [];
   estado.started = {};
+  estado.primerLink = {};
   guardar();
 
   const card = document.getElementById("card");
